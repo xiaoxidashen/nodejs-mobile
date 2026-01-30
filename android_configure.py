@@ -78,5 +78,5 @@ GYP_DEFINES += " ANDROID_NDK_SYSROOT=" + toolchain_path + "/sysroot"
 os.environ['GYP_DEFINES'] = GYP_DEFINES
 
 if os.path.exists("./configure"):
-    # nodejs-mobile patch: added --with-intl=none and --shared
-    os.system("./configure --dest-cpu=" + DEST_CPU + " --dest-os=android --openssl-no-asm --with-intl=none --cross-compiling --shared")
+    # nodejs-mobile patch: added --with-intl=small-icu and --shared
+    os.system("./configure --dest-cpu=" + DEST_CPU + " --dest-os=android --openssl-no-asm --with-intl=small-icu --cross-compiling --shared")

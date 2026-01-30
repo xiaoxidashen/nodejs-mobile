@@ -119,6 +119,7 @@ jobs:
           - { os: ubuntu-22.04 }
     runs-on: ${{ matrix.config.os }}
     needs: build-android
+    if: always()
     steps:
       - uses: actions/checkout@v4
         with:
@@ -157,10 +158,6 @@ jobs:
         with:
           name: nodejs-mobile-android
           path: artifacts
-
-      - uses: geekyeggo/delete-artifact@v5
-        with:
-          name: node-android-*
 
   combine-ios:
     strategy:
