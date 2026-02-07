@@ -408,6 +408,11 @@
               'libraries': [ '-lAdvAPI32.lib', '-lUser32.lib' ],
             },
           }],
+          [ 'OS!="win"', {
+            'link_settings': {
+              'libraries': [ '-lpthread' ],
+            },
+          }],
         ],
       },
       'export_dependent_settings': [ 'icu_uconfig' ],

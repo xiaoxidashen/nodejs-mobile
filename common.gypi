@@ -418,8 +418,16 @@
                 'ldflags': [ '-m32' ],
               }],
               [ 'host_arch=="x64"', {
-                'cflags': [ '-m64' ],
-                'ldflags': [ '-m64' ],
+                'conditions': [
+                  [ 'target_arch=="arm"', {
+                    'cflags': [ '-m32' ],
+                    'ldflags': [ '-m32' ],
+                  }],
+                  [ 'target_arch!="arm"', {
+                    'cflags': [ '-m64' ],
+                    'ldflags': [ '-m64' ],
+                  }],
+                ],
               }],
               [ 'host_arch=="ppc" and OS not in "aix os400"', {
                 'cflags': [ '-m32' ],
