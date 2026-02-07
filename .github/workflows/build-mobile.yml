@@ -36,10 +36,18 @@ jobs:
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.6
 
-      - name: Install build utils
+      - name: Install arm host toolchain deps
+        if: matrix.config.target_arch == 'arm'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-multilib g++-multilib
+
+      - name: Verify 32-bit host toolchain
+        if: matrix.config.target_arch == 'arm'
+        run: |
+          echo 'int main(void){return 0;}' > /tmp/host32-smoke.c
+          gcc -m32 /tmp/host32-smoke.c -o /tmp/host32-smoke
+          file /tmp/host32-smoke
 
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
@@ -124,11 +132,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: '0'
-
-      - name: Install build utils
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib
 
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
