@@ -8,6 +8,7 @@ on:
 
 env:
   SCCACHE_GHA_ENABLED: 'true'
+  SCCACHE_IGNORE_SERVER_IO_ERROR: '1'
   SCCACHE_ENFORCE_COMPILE_REQUESTS: 'false'
   ANDROID_NDK_VERSION: r24
   ANDROID_TARGET_SDK_VERSION: 24
@@ -36,6 +37,28 @@ jobs:
 
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.6
+
+      - name: Validate sccache backend
+        run: |
+          if ! command -v sccache >/dev/null 2>&1; then
+            echo "sccache not found; skipping backend validation."
+            exit 0
+          fi
+
+          if sccache --start-server >/dev/null 2>&1; then
+            echo "sccache GHA backend is available."
+            exit 0
+          fi
+
+          echo "Warning: sccache GHA backend unavailable; falling back to local sccache storage."
+          sccache --stop-server >/dev/null 2>&1 || true
+          echo "SCCACHE_GHA_ENABLED=false" >> "$GITHUB_ENV"
+
+          if SCCACHE_GHA_ENABLED=false sccache --start-server >/dev/null 2>&1; then
+            echo "sccache local fallback is active."
+          else
+            echo "Warning: sccache local fallback did not start; build will rely on direct compiler fallback via SCCACHE_IGNORE_SERVER_IO_ERROR."
+          fi
 
       - name: Install arm host toolchain deps
         if: matrix.config.target_arch == 'arm'
