@@ -8,6 +8,7 @@ on:
 
 env:
   SCCACHE_GHA_ENABLED: 'true'
+  SCCACHE_ENFORCE_COMPILE_REQUESTS: 'false'
   ANDROID_NDK_VERSION: r24
   ANDROID_TARGET_SDK_VERSION: 24
 
@@ -63,6 +64,47 @@ jobs:
         run: |
           ./tools/android_build.sh $MY_ANDROID_NDK_HOME $ANDROID_TARGET_SDK_VERSION $TARGET_ARCH
           rm -rf ./out_android/libnode
+      - name: Report sccache stats
+        env:
+          SCCACHE_ENFORCE_COMPILE_REQUESTS: ${{ env.SCCACHE_ENFORCE_COMPILE_REQUESTS }}
+        run: |
+          if ! command -v sccache >/dev/null 2>&1; then
+            echo "sccache not found; skipping stats."
+            exit 0
+          fi
+          stats_json="$(sccache --show-stats --stats-format=json)"
+          compile_requests="$(STATS_JSON="$stats_json" python3 - <<'PY'
+import json
+import os
+
+raw = os.environ.get("STATS_JSON", "").strip()
+if not raw:
+    print("")
+    raise SystemExit(0)
+
+data = json.loads(raw)
+value = None
+if isinstance(data, dict):
+    if "compile_requests" in data:
+        value = data["compile_requests"]
+    elif "stats" in data and isinstance(data["stats"], dict):
+        value = data["stats"].get("compile_requests")
+
+print("" if value is None else value)
+PY
+)"
+          if [ -z "$compile_requests" ]; then
+            echo "Could not parse compile_requests from sccache stats."
+            exit 0
+          fi
+          echo "sccache compile_requests=${compile_requests}"
+          if [ "$compile_requests" -eq 0 ]; then
+            if [ "${SCCACHE_ENFORCE_COMPILE_REQUESTS:-false}" = "true" ]; then
+              echo "compile_requests is 0 and SCCACHE_ENFORCE_COMPILE_REQUESTS=true."
+              exit 1
+            fi
+            echo "Warning: compile_requests is 0."
+          fi
 
       - name: Patch libnode.so text hash
         run: |
@@ -127,6 +169,47 @@ jobs:
           source bin/activate
           python3.12 -m pip install setuptools
           ./tools/ios_framework_prepare.sh $TARGET_ARCH
+      - name: Report sccache stats
+        env:
+          SCCACHE_ENFORCE_COMPILE_REQUESTS: ${{ env.SCCACHE_ENFORCE_COMPILE_REQUESTS }}
+        run: |
+          if ! command -v sccache >/dev/null 2>&1; then
+            echo "sccache not found; skipping stats."
+            exit 0
+          fi
+          stats_json="$(sccache --show-stats --stats-format=json)"
+          compile_requests="$(STATS_JSON="$stats_json" python3 - <<'PY'
+import json
+import os
+
+raw = os.environ.get("STATS_JSON", "").strip()
+if not raw:
+    print("")
+    raise SystemExit(0)
+
+data = json.loads(raw)
+value = None
+if isinstance(data, dict):
+    if "compile_requests" in data:
+        value = data["compile_requests"]
+    elif "stats" in data and isinstance(data["stats"], dict):
+        value = data["stats"].get("compile_requests")
+
+print("" if value is None else value)
+PY
+)"
+          if [ -z "$compile_requests" ]; then
+            echo "Could not parse compile_requests from sccache stats."
+            exit 0
+          fi
+          echo "sccache compile_requests=${compile_requests}"
+          if [ "$compile_requests" -eq 0 ]; then
+            if [ "${SCCACHE_ENFORCE_COMPILE_REQUESTS:-false}" = "true" ]; then
+              echo "compile_requests is 0 and SCCACHE_ENFORCE_COMPILE_REQUESTS=true."
+              exit 1
+            fi
+            echo "Warning: compile_requests is 0."
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

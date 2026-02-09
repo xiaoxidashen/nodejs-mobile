@@ -2,6 +2,17 @@ import platform
 import sys
 import os
 
+def resolve_sccache_path():
+    sccache_path = os.environ.get("SCCACHE_PATH", "").strip()
+    if sccache_path:
+        return sccache_path
+    return os.popen('command -v sccache').read().strip()
+
+def wrap_compiler_with_sccache(compiler_path, sccache_path):
+    if sccache_path:
+        return sccache_path + " " + compiler_path
+    return compiler_path
+
 # TODO: In next version, it will be a JSON file listing all the patches, and then it will iterate through to apply them.
 def patch_android():
     print("- Patches List -")
@@ -63,11 +74,16 @@ elif platform.system() == "Linux":
     toolchain_path = android_ndk_path + "/toolchains/llvm/prebuilt/linux-x86_64"
 
 os.environ['PATH'] += os.pathsep + toolchain_path + "/bin"
-os.environ['CC'] = toolchain_path + "/bin/" + TOOLCHAIN_PREFIX + android_sdk_version + "-" +  "clang"
-os.environ['CXX'] = toolchain_path + "/bin/" + TOOLCHAIN_PREFIX + android_sdk_version + "-" + "clang++"
+sccache_path = resolve_sccache_path()
+cc_path = toolchain_path + "/bin/" + TOOLCHAIN_PREFIX + android_sdk_version + "-" +  "clang"
+cxx_path = toolchain_path + "/bin/" + TOOLCHAIN_PREFIX + android_sdk_version + "-" + "clang++"
+os.environ['CC'] = wrap_compiler_with_sccache(cc_path, sccache_path)
+os.environ['CXX'] = wrap_compiler_with_sccache(cxx_path, sccache_path)
 # nodejs-mobile patch: add host CC and CXX
-os.environ['CC_host'] = os.popen('command -v gcc').read().strip()
-os.environ['CXX_host'] = os.popen('command -v g++').read().strip()
+cc_host_path = os.popen('command -v gcc').read().strip() or "gcc"
+cxx_host_path = os.popen('command -v g++').read().strip() or "g++"
+os.environ['CC_host'] = wrap_compiler_with_sccache(cc_host_path, sccache_path)
+os.environ['CXX_host'] = wrap_compiler_with_sccache(cxx_host_path, sccache_path)
 
 GYP_DEFINES = "target_arch=" + arch
 GYP_DEFINES += " v8_target_arch=" + arch

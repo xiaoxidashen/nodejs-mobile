@@ -57,8 +57,36 @@ declare -a outputs_arm64_only=(
 declare -a outputs_x64=("${outputs_common[@]}" "${outputs_x64_only[@]}")
 declare -a outputs_arm64=("${outputs_common[@]}" "${outputs_arm64_only[@]}")
 
+resolve_sccache_path() {
+  if [ -n "${SCCACHE_PATH:-}" ]; then
+    echo "$SCCACHE_PATH"
+    return 0
+  fi
+  if command -v sccache >/dev/null 2>&1; then
+    command -v sccache
+  fi
+  return 0
+}
+
+setup_sccache_compilers() {
+  local sccache_path
+  sccache_path="$(resolve_sccache_path)"
+  if [ -z "$sccache_path" ]; then
+    return 0
+  fi
+  local clang_path
+  local clangxx_path
+  clang_path="$(xcrun --find clang)"
+  clangxx_path="$(xcrun --find clang++)"
+  export CC="$sccache_path $clang_path"
+  export CXX="$sccache_path $clangxx_path"
+  export CC_host="$CC"
+  export CXX_host="$CXX"
+}
+
 build_for_arm64_device() {
   make clean
+  setup_sccache_compilers
   GYP_DEFINES="target_arch=arm64 host_os=mac target_os=ios"
   export GYP_DEFINES
   ./configure \
@@ -82,6 +110,7 @@ build_for_arm64_device() {
 
 build_for_arm64_simulator() {
   make clean
+  setup_sccache_compilers
   GYP_DEFINES="target_arch=arm64 host_os=mac target_os=ios"
   export GYP_DEFINES
   ./configure \
@@ -106,6 +135,7 @@ build_for_arm64_simulator() {
 
 build_for_x64_simulator() {
   make clean
+  setup_sccache_compilers
   GYP_DEFINES="target_arch=x64 host_os=mac target_os=ios"
   export GYP_DEFINES
   arch -x86_64 ./configure \
