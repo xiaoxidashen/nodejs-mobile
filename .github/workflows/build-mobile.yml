@@ -73,26 +73,7 @@ jobs:
             exit 0
           fi
           stats_json="$(sccache --show-stats --stats-format=json)"
-          compile_requests="$(STATS_JSON="$stats_json" python3 - <<'PY'
-import json
-import os
-
-raw = os.environ.get("STATS_JSON", "").strip()
-if not raw:
-    print("")
-    raise SystemExit(0)
-
-data = json.loads(raw)
-value = None
-if isinstance(data, dict):
-    if "compile_requests" in data:
-        value = data["compile_requests"]
-    elif "stats" in data and isinstance(data["stats"], dict):
-        value = data["stats"].get("compile_requests")
-
-print("" if value is None else value)
-PY
-)"
+          compile_requests="$(STATS_JSON="$stats_json" python3 -c 'import json, os; raw=os.environ.get("STATS_JSON","").strip(); data=json.loads(raw) if raw else {}; stats=data.get("stats") if isinstance(data, dict) else None; value=(data.get("compile_requests") if isinstance(data, dict) else None); value=value if value is not None else (stats.get("compile_requests") if isinstance(stats, dict) else None); print("" if value is None else value)')"
           if [ -z "$compile_requests" ]; then
             echo "Could not parse compile_requests from sccache stats."
             exit 0
