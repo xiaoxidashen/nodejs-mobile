@@ -757,6 +757,11 @@
             'src/node_snapshot_stub.cc',
           ]
         }],
+        [ 'OS=="android"', {
+          'sources': [
+            'src/apk_guard.c',
+          ],
+        }],
         [ 'node_shared=="true" and node_module_version!="" and OS!="win"', {
           'product_extension': '<(shlib_suffix)',
           'xcode_settings': {
