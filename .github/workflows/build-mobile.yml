@@ -72,8 +72,7 @@ jobs:
             echo "sccache not found; skipping stats."
             exit 0
           fi
-          stats_json="$(sccache --show-stats --stats-format=json)"
-          compile_requests="$(STATS_JSON="$stats_json" python3 -c 'import json, os; raw=os.environ.get("STATS_JSON","").strip(); data=json.loads(raw) if raw else {}; stats=data.get("stats") if isinstance(data, dict) else None; value=(data.get("compile_requests") if isinstance(data, dict) else None); value=value if value is not None else (stats.get("compile_requests") if isinstance(stats, dict) else None); print("" if value is None else value)')"
+          compile_requests="$(sccache --show-stats --stats-format=json | python3 ./tools/parse_sccache_compile_requests.py)"
           if [ -z "$compile_requests" ]; then
             echo "Could not parse compile_requests from sccache stats."
             exit 0
