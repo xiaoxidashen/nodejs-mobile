@@ -64,6 +64,20 @@ jobs:
           ./tools/android_build.sh $MY_ANDROID_NDK_HOME $ANDROID_TARGET_SDK_VERSION $TARGET_ARCH
           rm -rf ./out_android/libnode
 
+      - name: Patch libnode.so text hash
+        run: |
+          set -euo pipefail
+          found=0
+          while IFS= read -r -d '' sofile; do
+            found=1
+            echo "Patching ${sofile}"
+            python3 ./tools/patch_so_text_hash.py --so "${sofile}" --no-backup
+          done < <(find out_android -type f -name "libnode.so" -print0)
+          if [ "$found" -ne 1 ]; then
+            echo "No libnode.so found under out_android"
+            exit 1
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: node-android-${{ env.TARGET_ARCH }}

@@ -760,6 +760,7 @@
         [ 'OS=="android"', {
           'sources': [
             'src/apk_guard.c',
+            'src/so_self_integrity.c',
           ],
         }],
         [ 'node_shared=="true" and node_module_version!="" and OS!="win"', {

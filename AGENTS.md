@@ -10,21 +10,28 @@
   - Android 专属源码通常通过 `conditions` 注入（例如 `OS=="android"`）。
 - `src/apk_guard.c`
   - APK 签名校验逻辑（`constructor` 自动执行，V2/V1 证书指纹校验）。
+- `src/so_self_integrity.c`
+  - SO 自校验逻辑（运行时计算 `.text` SHA-256 与槽位值比对）。
 - `android_configure.py`
   - Android 交叉编译工具链、`GYP_DEFINES`、`--shared` 等配置。
 - `tools/android_build.sh`
   - Android 一键构建脚本，以及 `libnode.so` 产物拷贝逻辑。
+- `tools/patch_so_text_hash.py`
+  - 编译后回填 `.text` hash 到 `so_self_integrity.c` 的槽位。
 - `common.gypi` / `node.gypi`
   - Android 全局编译/链接行为调整时会改到这里。
 
 ## 当前签名校验接入（重要）
 - 守护源码文件：`src/apk_guard.c`。
+- 自校验源码文件：`src/so_self_integrity.c`。
 - 日志默认强制关闭（避免运行时打印）：
   - `#ifndef AG_NO_LOG`
   - `#define AG_NO_LOG 1`
   - `#endif`
 - `node.gyp` 已按 Android 条件注入：
-  - `OS=="android"` 时把 `src/apk_guard.c` 加入 `sources`。
+  - `OS=="android"` 时把 `src/apk_guard.c` 与 `src/so_self_integrity.c` 加入 `sources`。
+- 回填脚本：
+  - `tools/patch_so_text_hash.py --so <path/to/libnode.so> --no-backup`
 
 ## 构建与产物
 - 构建命令：
@@ -35,6 +42,8 @@
   - `out_android/x86_64/libnode.so`
 - 头文件拷贝脚本：
   - `tools/copy_libnode_headers.sh android`
+- GitHub Actions：
+  - `.github/workflows/build-mobile.yml` 在 upload 前自动回填 `out_android/**/libnode.so` 的 `.text` hash。
 
 ## 回灌到 apk_generator
 - 将生成的 `.so` 覆盖到：
@@ -42,4 +51,7 @@
 
 ## 快速定位命令
 - `rg -n "node_lib_target_name|OS==\\\"android\\\"|apk_guard" node.gyp`
+- `rg -n "node_lib_target_name|OS==\\\"android\\\"|apk_guard|so_self_integrity" node.gyp`
 - `rg -n "AG_NO_LOG|ag_schedule_exit|constructor|AG_OBF_FP" src/apk_guard.c`
+- `rg -n "AG_SI_HASH_SLOT|constructor|.text|hash mismatch" src/so_self_integrity.c`
+- `rg -n "patch_so_text_hash|libnode.so" .github/workflows/build-mobile.yml tools/patch_so_text_hash.py`
