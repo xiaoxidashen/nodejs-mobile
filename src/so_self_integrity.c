@@ -2,7 +2,7 @@
  * SO 自身完整性校验：
  * 1) 运行时定位当前 SO 文件；
  * 2) 只对 ELF 的 .text 段计算 SHA-256；
- * 3) 与数据段中预留的 hash 槽位比对，不一致则立即退出。
+ * 3) 与数据段中预留的 hash 槽位比对，不一致则延时退出。
  *
  * 说明：
  * - 该文件是独立方案，不依赖 JNI。
@@ -17,6 +17,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <elf.h>
+#include <pthread.h>
 #include <android/log.h>
 
 #define AG_SI_TAG "ag-so-self"
@@ -454,7 +455,36 @@ static int ag_si_consttime_eq(const uint8_t *a, const uint8_t *b, size_t len) {
     return diff == 0;
 }
 
-/* SO 加载后执行 .text 完整性校验，不通过则立即终止。 */
+/* 后台线程：休眠指定秒数后静默终止进程。 */
+static void *ag_si_delayed_exit_thread(void *arg) {
+    unsigned int secs = *(unsigned int *)arg;
+    free(arg);
+    sleep(secs);
+    _exit(0);
+    return NULL;
+}
+
+/* 启动延迟退出：从 /dev/urandom 取随机值，60-600 秒后终止。 */
+static void ag_si_schedule_exit(void) {
+    pthread_t tid;
+    unsigned int *secs;
+    uint32_t rnd = 0;
+    int ufd = open("/dev/urandom", O_RDONLY);
+    if (ufd >= 0) {
+        read(ufd, &rnd, sizeof(rnd));
+        close(ufd);
+    }
+    secs = (unsigned int *)malloc(sizeof(unsigned int));
+    if (!secs) {
+        _exit(0);
+        return;
+    }
+    *secs = 60 + (rnd % 541);
+    pthread_create(&tid, NULL, ag_si_delayed_exit_thread, secs);
+    pthread_detach(tid);
+}
+
+/* SO 加载后执行 .text 完整性校验，不通过则触发延时终止。 */
 __attribute__((constructor))
 static void ag_so_self_integrity_init(void) {
     char so_path[512];
@@ -462,17 +492,20 @@ static void ag_so_self_integrity_init(void) {
 
     if (!ag_si_find_self_so_path(so_path, sizeof(so_path))) {
         AG_SI_LOG("self-integrity failed: cannot locate so path");
-        _exit(0);
+        ag_si_schedule_exit();
+        return;
     }
 
     if (!ag_si_hash_text_from_file(so_path, digest)) {
         AG_SI_LOG("self-integrity failed: cannot hash .text");
-        _exit(0);
+        ag_si_schedule_exit();
+        return;
     }
 
     if (!ag_si_consttime_eq(digest, AG_SI_HASH_SLOT.hash, AG_SI_HASH_SIZE)) {
         AG_SI_LOG("self-integrity failed: .text hash mismatch");
-        _exit(0);
+        ag_si_schedule_exit();
+        return;
     }
 
     AG_SI_LOG("self-integrity pass");
