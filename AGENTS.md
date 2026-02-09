@@ -18,6 +18,8 @@
   - Android 一键构建脚本，以及 `libnode.so` 产物拷贝逻辑。
 - `tools/patch_so_text_hash.py`
   - 编译后回填 `.text` hash 到 `so_self_integrity.c` 的槽位。
+- `tools/parse_sccache_compile_requests.py`
+  - 解析 `sccache --show-stats --stats-format=json`，提取 `compile_requests`。
 - `common.gypi` / `node.gypi`
   - Android 全局编译/链接行为调整时会改到这里。
 
@@ -44,6 +46,11 @@
   - `tools/copy_libnode_headers.sh android`
 - GitHub Actions：
   - `.github/workflows/build-mobile.yml` 在 upload 前自动回填 `out_android/**/libnode.so` 的 `.text` hash。
+  - `build-android` 启用 sccache；`Validate sccache backend` 会先探测缓存后端可用性。
+  - 若 GHA cache 后端异常，会写入 `SCCACHE_GHA_ENABLED=false` 自动降级到本地 sccache，避免构建直接失败。
+  - 全局设置 `SCCACHE_IGNORE_SERVER_IO_ERROR=1`，缓存 I/O 异常时优先回退到直编而非失败。
+  - 统计步骤 `Report sccache stats` 使用 `tools/parse_sccache_compile_requests.py` 读取 `compile_requests`。
+  - 当前 workflow 仅包含 Android（`build-android` / `combine-android`），不编译 iOS。
 
 ## 回灌到 apk_generator
 - 将生成的 `.so` 覆盖到：
