@@ -43,9 +43,17 @@ typedef struct {
     uint64_t size;
 } ag_si_text_range;
 
-/* 回填脚本按该魔数定位 hash 槽位。 */
-__attribute__((used))
-static const ag_si_hash_slot AG_SI_HASH_SLOT = {
+/* 定义在不同编译器下都可用的“保留符号”标记，避免链接阶段被裁剪。 */
+#if defined(__clang__)
+#define AG_SI_RETAIN __attribute__((used, retain))
+#else
+#define AG_SI_RETAIN __attribute__((used))
+#endif
+
+/* 回填脚本按该魔数定位 hash 槽位；使用 volatile 防止常量折叠。 */
+AG_SI_RETAIN
+__attribute__((section(".data.ag_si")))
+static volatile ag_si_hash_slot AG_SI_HASH_SLOT = {
     {0xa6, 0x5d, 0xc2, 0x19, 0x7e, 0x34, 0xeb, 0x90},
     {0x82, 0xc1, 0x04, 0x7b, 0xbe, 0xfd, 0x30, 0x77,
      0xaa, 0xe9, 0x2c, 0x63, 0xa6, 0xe5, 0xd8, 0x1f,
@@ -446,7 +454,7 @@ static int ag_si_hash_text_from_file(const char *so_path, uint8_t out_hash[AG_SI
 }
 
 /* 常量时间比较，避免早停泄露前缀信息。 */
-static int ag_si_consttime_eq(const uint8_t *a, const uint8_t *b, size_t len) {
+static int ag_si_consttime_eq(const uint8_t *a, const volatile uint8_t *b, size_t len) {
     volatile uint8_t diff = 0;
     size_t i;
     for (i = 0; i < len; i++) {
