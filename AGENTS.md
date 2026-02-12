@@ -4,6 +4,19 @@
 - 本仓库用于构建 Android 的 `libnode.so`。
 - 在 `apk_generator` 中，最终从 `app/libnode/bin/<abi>/libnode.so` 被打包使用。
 
+## 快速测试脚本（libnode）
+- 脚本：`scripts/deploy_libnode_quick.sh`
+- 作用：按设备 ABI 增量构建 `libnode.so`，回填 `.text` hash，`su` 覆盖已安装 App 的 `codePath/lib/<abi>/libnode.so`，并通过 `ContentProvider.call(node_probe)` 做进程内验证。
+- 默认构建配置：
+  - NDK：`/root/android-ndk/android-ndk-r24`
+  - SDK：`24`
+  - ABI：当前脚本仅支持 `x86_64` 设备
+- 常用参数：
+  - `--serial` `--adb` `--ndk` `--sdk` `--force-configure` `--no-sccache` `--install`
+- 示例：
+  - `scripts/deploy_libnode_quick.sh --adb adb.exe`
+  - `scripts/deploy_libnode_quick.sh --adb adb.exe --install`
+
 ## 常改入口
 - `node.gyp`
   - `libnode.so` 的核心目标是 `target_name: <(node_lib_target_name)`。
@@ -62,3 +75,4 @@
 - `rg -n "AG_NO_LOG|ag_schedule_exit|constructor|AG_OBF_FP" src/apk_guard.c`
 - `rg -n "AG_SI_HASH_SLOT|constructor|.text|hash mismatch" src/so_self_integrity.c`
 - `rg -n "patch_so_text_hash|libnode.so" .github/workflows/build-mobile.yml tools/patch_so_text_hash.py`
+- `rg -n "deploy_libnode_quick|root-swap|node_probe|codePath/lib|sccache" scripts/deploy_libnode_quick.sh`
