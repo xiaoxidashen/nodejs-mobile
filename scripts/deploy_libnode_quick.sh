@@ -137,6 +137,29 @@ ADB=("$ADB_BIN" -s "$SERIAL")
 echo "[info] adb: $ADB_BIN"
 echo "[info] serial: $SERIAL"
 
+SU_MODE=""
+if "${ADB[@]}" shell "su -c id" >/dev/null 2>&1; then
+  SU_MODE="dashc"
+elif "${ADB[@]}" shell "su 0 id" >/dev/null 2>&1; then
+  SU_MODE="uid0"
+elif "${ADB[@]}" shell "su root id" >/dev/null 2>&1; then
+  SU_MODE="root"
+else
+  echo "su is not available; root-swap mode cannot continue." >&2
+  exit 1
+fi
+echo "[info] su mode: $SU_MODE"
+
+adb_su() {
+  local cmd="$1"
+  case "$SU_MODE" in
+    dashc) "${ADB[@]}" shell "su -c \"$cmd\"" ;;
+    uid0)  "${ADB[@]}" shell "su 0 sh -c \"$cmd\"" ;;
+    root)  "${ADB[@]}" shell "su root sh -c \"$cmd\"" ;;
+    *) return 1 ;;
+  esac
+}
+
 ABI="$(${ADB[@]} shell getprop ro.product.cpu.abi | tr -d '\r')"
 if [[ -z "$ABI" ]]; then
   echo "Cannot detect device ABI." >&2
@@ -259,12 +282,6 @@ TARGET_SO=""
 LOCAL_HASH=""
 TARGET_HASH=""
 
-echo "[step] check su availability"
-if ! ${ADB[@]} shell "su -c id" >/dev/null 2>&1; then
-  echo "su is not available; root-swap mode cannot continue." >&2
-  exit 1
-fi
-
 echo "[step] resolve installed app lib path"
 CODE_PATH="$(${ADB[@]} shell "dumpsys package '$PACKAGE_NAME' | grep -m1 'codePath=' | sed 's/^.*codePath=//'" | tr -d '\r')"
 if [[ -z "$CODE_PATH" ]]; then
@@ -278,11 +295,11 @@ echo "[step] push built so to device temp path"
 ${ADB[@]} push "$SO_OUT" "$DEVICE_TMP_SO" >/dev/null
 
 echo "[step] root-swap installed libnode.so"
-${ADB[@]} shell "su -c 'cp \"$DEVICE_TMP_SO\" \"$TARGET_SO\" && chown system:system \"$TARGET_SO\" && chmod 755 \"$TARGET_SO\" && (restorecon \"$TARGET_SO\" || true) && ls -l \"$TARGET_SO\"'" | tr -d '\r'
+adb_su "cp \"$DEVICE_TMP_SO\" \"$TARGET_SO\" && chown system:system \"$TARGET_SO\" && chmod 755 \"$TARGET_SO\" && (restorecon \"$TARGET_SO\" || true) && ls -l \"$TARGET_SO\"" | tr -d '\r'
 ${ADB[@]} shell "rm -f '$DEVICE_TMP_SO'" >/dev/null 2>&1 || true
 
 LOCAL_HASH="$(sha256sum "$SO_OUT" | awk '{print $1}')"
-TARGET_HASH="$(${ADB[@]} shell "su -c 'sha256sum \"$TARGET_SO\"'" | tr -d '\r' | awk '{print $1}')"
+TARGET_HASH="$(adb_su "sha256sum \"$TARGET_SO\"" | tr -d '\r' | awk '{print $1}')"
 echo "[info] local sha256:  $LOCAL_HASH"
 echo "[info] target sha256: $TARGET_HASH"
 if [[ -z "$TARGET_HASH" || "$LOCAL_HASH" != "$TARGET_HASH" ]]; then
