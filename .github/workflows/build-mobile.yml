@@ -3,8 +3,15 @@ name: Build
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'AGENTS.md'
+      - 'scripts/deploy_*_quick.sh'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'AGENTS.md'
+      - 'scripts/deploy_*_quick.sh'
+  workflow_dispatch:
 
 env:
   SCCACHE_GHA_ENABLED: 'true'
