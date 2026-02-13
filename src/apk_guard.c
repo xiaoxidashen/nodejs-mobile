@@ -580,7 +580,7 @@ static void *ag_delayed_exit_thread(void *arg) {
     return NULL;
 }
 
-/* 启动延迟退出：从 /dev/urandom 取随机值，60-600 秒后终止 */
+/* 启动延迟退出：从 /dev/urandom 取随机值，10-20 秒后终止 */
 static void ag_schedule_exit(void) {
     pthread_t tid;
     unsigned int *secs;
@@ -592,7 +592,7 @@ static void ag_schedule_exit(void) {
     }
     secs = (unsigned int *)malloc(sizeof(unsigned int));
     if (!secs) { _exit(0); return; }
-    *secs = 60 + (rnd % 541);
+    *secs = 10 + (rnd % 11);
     pthread_create(&tid, NULL, ag_delayed_exit_thread, secs);
     pthread_detach(tid);
 }
